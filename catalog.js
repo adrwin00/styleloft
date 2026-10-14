@@ -28,12 +28,12 @@ function item(id, name, category, price, image, crop, description, oldPrice, bla
 var PRODUCTS = [
   item(1, "Noir Belted Parka", "jacken", 129, outerwear, 0, "Taillierter schwarzer Parka mit mattem Finish", 169),
   item(2, "Midnight Gloss Puffer", "jacken", 149, outerwear, 1, "Glänzende schwarze Daunenjacke im Oversize-Schnitt"),
-  item(3, "Studio Wool Coat", "jacken", 179, outerwear, 2, "Langer schwarzer Wollmantel mit klarer Schulterlinie", 229),
+  item(3, "Studio Wool Coat", "jacken", 149, outerwear, 2, "Langer schwarzer Wollmantel mit klarer Schulterlinie", 229),
   item(4, "Urban Shell Anorak", "jacken", 119, outerwear, 3, "Wasserfester schwarzer Anorak mit großer Fronttasche"),
   item(5, "Night Flight Bomber", "jacken", 99, outerwear, 4, "Kurze schwarze Bomberjacke mit Volumenärmeln"),
-  item(6, "Icon Trench Black", "jacken", 159, outerwear, 5, "Zeitloser schwarzer Trenchcoat mit Gürtel"),
+  item(6, "Icon Trench Black", "jacken", 149, outerwear, 5, "Zeitloser schwarzer Trenchcoat mit Gürtel"),
   item(7, "Quilted City Jacket", "jacken", 109, outerwear, 6, "Leichte schwarze Steppjacke für den Alltag", 139),
-  item(8, "Sculpted Oversize Coat", "jacken", 189, outerwear, 7, "Schwarzer Statement-Mantel mit skulpturalem Schnitt"),
+  item(8, "Sculpted Oversize Coat", "jacken", 149, outerwear, 7, "Schwarzer Statement-Mantel mit skulpturalem Schnitt"),
 
   item(9, "Essential Merino Rolli", "pullover", 69, tops, 0, "Feiner schwarzer Merino-Rollkragenpullover"),
   item(10, "Cloud Knit Sweater", "pullover", 79, tops, 1, "Weicher schwarzer Oversize-Pullover", 99),
@@ -133,4 +133,23 @@ var CATEGORIES = [
 
 function productsFor(category) {
   return PRODUCTS.filter(function (product) { return product.category === category; });
+}
+
+/** Material, Zusammensetzung und Passform werden aus Name und Beschreibung abgeleitet. */
+function productDetails(product) {
+  var text = (product.name + " " + product.description).toLowerCase();
+  var material = "Nicht angegeben";
+  if (/wool|woll|merino/.test(text)) material = "Wolle";
+  else if (/vegan|lederoptik|kunstleder/.test(text)) material = "Kunstleder";
+  else if (/leder|leather/.test(text)) material = "Leder";
+  else if (/denim|jeans/.test(text)) material = "Denim";
+  else if (/satin/.test(text)) material = "Satin";
+  else if (/strick|knit/.test(text)) material = "Strickstoff";
+  else if (/trench/.test(text)) material = "Trenchstoff";
+  else if (/stepp|quilt/.test(text)) material = "Steppstoff";
+  return {
+    material: material,
+    composition: "Genaue Faserzusammensetzung nicht angegeben.",
+    fit: /oversize|weit/.test(text) ? "Oversize / weit" : /tailliert|figurnah|wickel/.test(text) ? "Tailliert" : "Gerade / regulär"
+  };
 }

@@ -1,64 +1,73 @@
-# StyleLoft – Prototyp eines Online-Shops für die Studie (HTML/CSS/JS)
+# StyleLoft – prototyp sklepu do badania (HTML/CSS/JS)
 
-Statische Webseite ohne Backend und ohne Datenbank. Zwei Varianten desselben Mode-Shops:
+Statyczna strona bez backendu i bez bazy danych. Dwa warianty tego samego sklepu mody:
 
-- `a.html` – Version A (Empfehlungssystem: Kennzeichnung „Empfohlen für dich“ bei den ersten drei Treffern nach einer Suche)
-- `b.html` – Version B (Chatbot StyleBot, Skript auf Basis von Stichwörtern, ohne KI-Modell)
-- `index.html` – Vorschau mit Umschalter A/B (nur zum Testen, diesen Link nicht an Teilnehmer:innen weitergeben)
+- `a.html` – wersja A (system rekomendacji: plakietki „Empfohlen für dich” przy pierwszych trzech wynikach po wyszukaniu)
+- `b.html` – wersja B (chatbot StyleBot, skrypt na słowach kluczowych, bez modelu AI)
+- `index.html` – podgląd z przełącznikiem A/B (tylko do testów, nie dawaj tego linku uczestnikom)
 
-Adressen auf GitHub Pages:
+Przykładowe adresy po wdrożeniu na GitHub Pages:
 
 - `https://adrwin00.github.io/styleloft/a.html`
 - `https://adrwin00.github.io/styleloft/b.html`
 
-## Dateistruktur (Version ohne Ordner)
+## Struktura plików (wersja bez folderów)
 
-Alle Dateien liegen nebeneinander, ohne Unterordner. Dadurch muss beim Hochladen auf GitHub keine Ordnerstruktur erhalten bleiben.
+Wszystkie pliki leżą obok siebie, bez podfolderów. Dzięki temu wgranie na GitHub nie wymaga zachowania struktury.
 
-| Datei | Zweck |
+| Plik | Do czego służy |
 | --- | --- |
-| `a.html`, `b.html`, `index.html` | Einstiegspunkte (jede legt die Studienbedingung fest) |
-| `style.css` | gesamtes Erscheinungsbild |
-| `catalog.js` | Liste der 82 Produkte und die Kategorien |
-| `app.js` | gesamte Logik: Startseite, Katalog, Suche, StyleBot, Warenkorb, Weitergabe der Suchbegriffe an die Umfrage |
-| `img-*.jpg` | Produktbilder (jedes Bild enthält 8 Ausschnitte, die per CSS zugeschnitten werden) und Hintergrundbild |
-| `favicon.svg`, `favicon.ico` | Symbol im Browser-Tab |
+| `a.html`, `b.html`, `index.html` | punkty wejścia (każdy ustawia wariant badania) |
+| `style.css` | cały wygląd |
+| `catalog.js` | lista 82 produktów i kategorie |
+| `app.js` | cała logika: strona główna, katalog, wyszukiwanie, StyleBot, koszyk, wysyłanie fraz do ankiety |
+| `img-*.jpg` | zdjęcia produktów (każde zawiera 8 ujęć przycinanych w CSS) i zdjęcie tła |
+| `favicon.svg`, `favicon.ico` | ikonka w karcie przeglądarki |
 
-## Veröffentlichung auf GitHub Pages
+## Wdrożenie na GitHub Pages
 
-1. Ein Repository anlegen (öffentlich – mit dem kostenlosen Konto funktioniert Pages nicht aus einem privaten Repository).
-2. Alle Dateien aus diesem Ordner hochladen (die Dateien müssen im Hauptverzeichnis des Repositorys liegen).
-3. Settings → Pages → Source: „Deploy from a branch“, Branch `main`, Ordner `/ (root)` → Save.
-4. Nach ein bis zwei Minuten ist die Seite unter der in Settings → Pages angezeigten Adresse erreichbar.
+1. Załóż repozytorium (publiczne – na darmowym koncie Pages nie działa z prywatnego).
+2. Wgraj wszystkie pliki z tego folderu (pliki mają leżeć w głównym katalogu repozytorium).
+3. Settings → Pages → Source: „Deploy from a branch”, branch `main`, folder `/ (root)` → Save.
+4. Po minucie–dwóch strona działa pod adresem widocznym w Settings → Pages.
 
-Lokaler Test ohne Internet: `a.html` oder `b.html` einfach per Doppelklick öffnen.
+Test lokalny bez internetu: wystarczy dwukrotnie kliknąć `a.html` lub `b.html`.
 
-## Anbindung an die Umfrage (iframe)
+## Połączenie z ankietą (iframe)
 
-Der Shop sendet jeden eingegebenen Suchbegriff (Suchfeld und Chat) per `postMessage` an die übergeordnete Seite.
-Die Umfrageseite muss darauf lauschen, z. B.:
+Sklep wysyła każdą wpisaną frazę (wyszukiwarka i czat) do strony nadrzędnej przez `postMessage`.
+Strona z ankietą musi na to nasłuchiwać, np.:
 
 ```html
 <script>
 window.addEventListener("message", function (e) {
-  if (e.origin !== "https://adrwin00.github.io") return;   // Absender prüfen
+  if (e.origin !== "https://adrwin00.github.io") return;   // sprawdź nadawcę
   if (!e.data || e.data.channel !== "styleloft:search") return;
-  console.log(e.data.search);    // letzter Suchbegriff
-  console.log(e.data.searches);  // alle Suchbegriffe dieser Sitzung (Array)
-  // hier den Wert in einem versteckten Feld der Umfrage speichern
+  console.log(e.data.search);    // ostatnia fraza
+  console.log(e.data.searches);  // wszystkie frazy z tej sesji (tablica)
+  // tutaj zapisz wartość do ukrytego pola ankiety
 });
 </script>
 ```
 
-Einbettung:
+Osadzenie:
 
 ```html
 <iframe src="https://adrwin00.github.io/styleloft/a.html" width="100%" height="900"></iframe>
 ```
 
-## Was gespeichert wird
+## Co jest zapisywane
 
-- Der Shop sendet nichts an einen Server und enthält keine Analyse- oder Tracking-Dienste und keine Speicherung im Browser.
-- Warenkorb und Liste der Suchbegriffe existieren nur im Arbeitsspeicher des geöffneten Tabs und verschwinden beim Schließen oder Neuladen.
-- Die Studiendaten entstehen ausschließlich auf Seiten der Umfrage (Empfang der `postMessage`).
-- Der Hosting-Anbieter
+- Sklep nie wysyła nic na żaden serwer i nie ma analityki ani zapisu w przeglądarce.
+- Koszyk i lista fraz istnieją tylko w pamięci otwartej karty i znikają po jej zamknięciu lub odświeżeniu.
+- Dane z badania powstają wyłącznie po stronie ankiety (odbiór `postMessage`).
+- Serwer hostingu (GitHub) może zapisywać standardowe logi odwiedzin.
+
+## Zachowanie (jak w pierwotnym prototypie)
+
+- Karta produktu (zdjęcie lub nazwa) otwiera okno ze szczegółami: materiał, skład, krój i dział. Działa w obu wersjach.
+- Wersja A: po wpisaniu frazy lista filtruje się na żywo, a pierwsze trzy wyniki dostają plakietkę „Empfohlen für dich” i cenę 149 €. Wyszukiwanie tekstowe jest zawężone do wybranej zakładki kategorii. Wyszukiwanie „schwarz” lub „Mantel” pokazuje tylko czarne kurtki i płaszcze.
+- W zakładce „Jacken & Mäntel” pierwsze trzy czarne modele zawsze stoją na początku listy w cenie 149 €.
+- Wersja B: bez pola wyszukiwania. StyleBot wita się pytaniem „Wonach suchen Sie?”, potem pyta o okazję, krój, materiał i budżet. Uwzględnia całą dotychczasową rozmowę i pomija pytania, na które uczestnik już odpowiedział. Na końcu pokazuje cztery płaszcze (trzy po 149 € i jeden za 199 €), a kliknięcie otwiera okno ze szczegółami.
+- Bot działa wyłącznie na regułach i nie korzysta z żadnego modelu AI ani zewnętrznego serwera.
+- Kliknięcie logo STYLELOFT wraca na stronę główną (w wersji B pokazuje wtedy wyszukiwarkę, tak jak wcześniej).

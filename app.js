@@ -91,22 +91,99 @@
     return '<img class="product-photo product-crop-' + p.crop + '" src="' + p.image + '" alt="' + esc(p.name) + '" loading="lazy" width="1600" height="800">';
   }
 
+  /** Empfohlene Produkte werden mit festem Preis von 149 € und ohne Streichpreis angezeigt. */
+  function asRecommended(p) {
+    var copy = {};
+    Object.keys(p).forEach(function (k) { if (k !== "oldPrice") copy[k] = p[k]; });
+    copy.price = 149;
+    return copy;
+  }
+
+  /* Die angezeigten Preise stehen in data-Attributen, damit Dialog und Warenkorb denselben Preis nutzen. */
+  function cardData(p) {
+    return 'data-id="' + p.id + '" data-price="' + p.price + '" data-old="' + (p.oldPrice || "") + '"';
+  }
+
+  function productFromData(el) {
+    var base = productById(el.getAttribute("data-id"));
+    if (!base) return null;
+    var copy = {};
+    Object.keys(base).forEach(function (k) { copy[k] = base[k]; });
+    copy.price = Number(el.getAttribute("data-price"));
+    var old = el.getAttribute("data-old");
+    if (old) copy.oldPrice = Number(old); else delete copy.oldPrice;
+    return copy;
+  }
+
   function productCard(p, opts) {
     opts = opts || {};
+    var d = cardData(p);
     return (
       '<article class="product-card ' + (opts.compact ? "compact" : "") + '">' +
-      '<div class="product-image">' +
+      (opts.compact && opts.recommended ? '<span class="recommended-badge above-product">Empfohlen für dich</span>' : "") +
+      '<button type="button" class="product-image" aria-label="Details zu ' + esc(p.name) + '" data-act="detail" ' + d + ">" +
       (p.oldPrice ? '<span class="discount">−25%</span>' : "") +
-      (opts.recommended ? '<span class="recommended-badge">Empfohlen für dich</span>' : "") +
-      productImage(p) + "</div>" +
-      '<h3 class="product-name">' + esc(p.name) + "</h3>" +
+      (!opts.compact && opts.recommended ? '<span class="recommended-badge">Empfohlen für dich</span>' : "") +
+      productImage(p) + "</button>" +
+      '<h3 class="product-name"><button type="button" class="product-title-button" data-act="detail" ' + d + ">" + esc(p.name) + "</button></h3>" +
       (opts.compact ? "" : '<p class="product-description">' + esc(p.description) + "</p>") +
       '<div class="rating"><span>★</span> ' + Math.min(p.rating, 4.9).toFixed(1) + " (" + p.reviews + ")</div>" +
       '<div class="price"><strong>' + p.price + "€</strong>" + (p.oldPrice ? "<del>" + p.oldPrice + "€</del>" : "") + "</div>" +
-      '<button type="button" class="add-button" data-act="add" data-id="' + p.id + '">' + ICON.bag + "In den Warenkorb</button>" +
+      '<button type="button" class="add-button" data-act="add" ' + d + ">" + ICON.bag + "In den Warenkorb</button>" +
       "</article>"
     );
   }
+
+  /* ---------- Detail-Fenster (Dialog) ---------- */
+  var dialogRoot = document.createElement("div");
+  document.body.appendChild(dialogRoot);
+  var dialogState = null;
+
+  function openDialog(product, trigger) {
+    var det = productDetails(product);
+    dialogState = { product: product, trigger: trigger };
+    dialogRoot.innerHTML =
+      '<div class="dialog-overlay" data-act="dialog-overlay"></div>' +
+      '<div class="dialog-content product-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-title" aria-describedby="dlg-desc" tabindex="-1">' +
+      '<div class="product-detail-photo">' + productImage(product) + "</div>" +
+      '<div class="product-detail-copy">' +
+      '<h2 class="dialog-title" id="dlg-title">' + esc(product.name) + "</h2>" +
+      '<p class="dialog-desc" id="dlg-desc">' + esc(product.description) + "</p>" +
+      '<div class="price"><strong>' + product.price + "€</strong>" + (product.oldPrice ? "<del>" + product.oldPrice + "€</del>" : "") + "</div>" +
+      '<dl class="product-specs">' +
+      "<div><dt>Material</dt><dd>" + esc(det.material) + "</dd></div>" +
+      "<div><dt>Zusammensetzung</dt><dd>" + esc(det.composition) + "</dd></div>" +
+      "<div><dt>Passform</dt><dd>" + esc(det.fit) + "</dd></div>" +
+      "<div><dt>Abteilung</dt><dd>" + (product.gender === "damen" ? "Damen" : "Herren") + "</dd></div></dl>" +
+      '<button type="button" class="product-detail-add" data-act="dialog-add">' + ICON.bag + "In den Warenkorb</button>" +
+      "</div>" +
+      '<button type="button" class="dialog-close" data-act="dialog-close" aria-label="Schließen">' + ICON.x + "</button>" +
+      "</div>";
+    document.body.style.overflow = "hidden";
+    var box = dialogRoot.querySelector(".dialog-content");
+    if (box) box.focus();
+  }
+
+  function closeDialog() {
+    if (!dialogState) return;
+    var trigger = dialogState.trigger;
+    dialogState = null;
+    dialogRoot.innerHTML = "";
+    document.body.style.overflow = "";
+    if (trigger && document.body.contains(trigger)) trigger.focus();
+  }
+
+  document.addEventListener("keydown", function (e) {
+    if (!dialogState) return;
+    if (e.key === "Escape") { closeDialog(); return; }
+    if (e.key === "Tab") {
+      var items = dialogRoot.querySelectorAll("button");
+      if (!items.length) return;
+      var first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === dialogRoot.querySelector(".dialog-content"))) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  });
 
   /* ---------- Suche / Filter (wie im Prototyp) ---------- */
   function visibleProducts() {
@@ -121,16 +198,23 @@
       : productsFor(state.category);
     if (wantsDamen) list = list.filter(function (i) { return i.gender === "damen"; });
     if (searched && !wantsBlack && !wantsMantel && !wantsDamen && searched !== "mode") {
-      var allMatches = PRODUCTS.filter(function (i) {
+      /* Textsuche bleibt auf die gewählte Kategorie beschränkt */
+      var allMatches = productsFor(state.category).filter(function (i) {
         return (i.name + " " + i.description + " " + i.category).toLowerCase().indexOf(searched) !== -1;
       });
       if (allMatches.length) list = allMatches;
     }
-    return list.slice().sort(function (a, b) {
+    var sorted = list.slice().sort(function (a, b) {
       if (state.sort === "Preis aufsteigend") return a.price - b.price;
       if (state.sort === "Preis absteigend") return b.price - a.price;
       return b.rating - a.rating;
     });
+    if (state.category !== "jacken") return sorted;
+    /* In „Jacken & Mäntel“ stehen immer die ersten drei schwarzen Modelle vorn */
+    var lead = sorted.filter(function (i) { return i.black; }).slice(0, 3);
+    var leadIds = {};
+    lead.forEach(function (i) { leadIds[i.id] = true; });
+    return lead.concat(sorted.filter(function (i) { return !leadIds[i.id]; }));
   }
 
   function popularAds() {
@@ -155,7 +239,9 @@
     var searching = state.query.trim().length > 0;
     count.textContent = visible.length * 7 + 3 + " Ergebnisse";
     grid.innerHTML = visible.map(function (p, i) {
-      return productCard(p, { recommended: searching && i < 3 });
+      var recommended = searching && i < 3;
+      var fixedPrice = recommended || (state.category === "jacken" && i < 3);
+      return productCard(fixedPrice ? asRecommended(p) : p, { recommended: recommended });
     }).join("");
   }
 
@@ -206,7 +292,9 @@
 
   function catalogHtml() {
     var head =
-      '<form class="results-search" data-form="search"><input id="results-q" value="' + esc(state.query) + '" placeholder="Wonach suchen Sie?" autocomplete="off"><button type="submit">Suchen</button></form>' +
+      (state.condition === "recommendations"
+        ? '<form class="results-search" data-form="search"><input id="results-q" value="' + esc(state.query) + '" placeholder="Wonach suchen Sie?" autocomplete="off"><button type="submit">Suchen</button></form>'
+        : "") +
       '<div class="breadcrumbs">Start › Damen › ' + esc(categoryLabel()) + "</div>";
     var body;
     if (state.condition === "chat") {
@@ -314,16 +402,23 @@
     render();
   }
 
-  root.addEventListener("click", function (e) {
+  document.addEventListener("click", function (e) {
     var el = e.target.closest("[data-act]");
-    if (!el || !root.contains(el)) return;
+    if (!el) return;
     var act = el.getAttribute("data-act");
+
+    /* Detail-Fenster (liegt außerhalb von #app) */
+    if (act === "dialog-overlay" || act === "dialog-close") { closeDialog(); return; }
+    if (act === "dialog-add") { if (dialogState) addToCart(dialogState.product); return; }
+    if (!root.contains(el)) return;
+
     if (act === "cart-overlay") {
       if (e.target !== el) return; /* Klick innerhalb der Schublade schließt nicht */
       cartOpen = false; renderDrawer();
     } else if (act === "cart-close") { cartOpen = false; renderDrawer(); }
     else if (act === "cart-open") { cartOpen = true; renderDrawer(); }
-    else if (act === "add") { var p = productById(el.getAttribute("data-id")); if (p) addToCart(p); }
+    else if (act === "add") { var p = productFromData(el); if (p) addToCart(p); }
+    else if (act === "detail") { var dp = productFromData(el); if (dp) openDialog(dp, el); }
     else if (act === "brand") { state.view = "home"; render(); }
     else if (act === "cat") { openCategory(el.getAttribute("data-cat")); }
     else if (act === "trend") { state.query = el.getAttribute("data-term"); state.view = "catalog"; render(); }
@@ -358,13 +453,21 @@
   /* ---------- StyleBot (Version B) ---------- */
   /* Kein echtes KI-Modell: Der Bot erkennt Stichwörter und stellt feste Fragen. */
   var TOPICS = [
-    { id: "occasion", question: "Für welchen Anlass suchen Sie einen Mantel — Alltag, Büro oder einen besonderen Anlass?", keywords: ["alltag", "büro", "buero", "arbeit", "event", "abend", "date", "besonder"], echo: function (hit) { return "Anlass für den Mantel: „" + hit + "“ — habe ich notiert."; } },
-    { id: "length", question: "Welche Mantellänge bevorzugen Sie — kurz, knielang oder lang?", keywords: ["kurz", "knie", "midi", "lang", "maxi"], echo: function (hit) { return "Mantellänge „" + hit + "“ — verstanden."; } },
-    { id: "fit", question: "Soll der Mantel tailliert, gerade oder Oversize geschnitten sein?", keywords: ["tailliert", "figur", "eng", "gerade", "oversize", "weit", "locker"], echo: function (hit) { return "Mantelschnitt „" + hit + "“ passt."; } },
-    { id: "material", question: "Welches Material wünschen Sie für den Mantel — Wolle, Trenchstoff, Stepp oder Kunstleder?", keywords: ["wolle", "woll", "trench", "stepp", "kunstleder", "leder"], echo: function (hit) { return "Mantelmaterial „" + hit + "“ ist berücksichtigt."; } },
-    { id: "details", question: "Welche Details soll der Mantel haben — Gürtel, Kapuze, Knöpfe oder einen besonders cleanen Look?", keywords: ["gürtel", "guertel", "kapuze", "knopf", "knöpfe", "knoepfe", "clean", "minimal"], echo: function (hit) { return "Manteldetail „" + hit + "“ — notiert."; } },
-    { id: "budget", question: "Wie hoch ist Ihr Budget für den Mantel ungefähr?", keywords: ["€", "eur", "euro", "budget", "unter", "bis", "preis"], echo: function (hit) { return "Budget für den Mantel: „" + hit + "“ — notiert."; } }
+    { id: "occasion", question: "Erzählen Sie mir ein bisschen: Wofür möchten Sie den Mantel tragen — im Alltag, im Büro, auf Reisen oder zu einem besonderen Anlass?", keywords: ["alltag", "jeden tag", "täglich", "freizeit", "casual", "büro", "buero", "arbeit", "job", "business", "meeting", "office", "uni", "reise", "urlaub", "stadt", "event", "abend", "party", "hochzeit", "feier", "theater", "konzert", "date", "besonder", "elegant", "festlich", "spaziergang", "wochenende"], echo: function (hit) { return "Oh, „" + hit + "“ — da sehe ich Sie schon richtig gut angezogen vor mir!"; } },
+    { id: "fit", question: "Und wie mögen Sie es am liebsten — eher tailliert und figurbetont, klassisch gerade oder lässig oversize? Ich persönlich liebe ja beides 😊", keywords: ["tailliert", "taille", "figur", "eng", "schmal", "körpernah", "gerade", "klassisch", "zeitlos", "regulär", "normal", "oversize", "oversized", "weit", "locker", "lässig", "bequem", "kastig", "boxy", "gürtel", "wickel", "kurz", "lang", "midi", "knie", "maxi"], echo: function (hit) { return "„" + hit + "“ — gute Wahl, das schmeichelt wirklich jeder Silhouette."; } },
+    { id: "material", question: "Jetzt wird's spannend: Welches Material fühlt sich für Sie richtig an — warme Wolle, leichter Trenchstoff, kuscheliges Stepp/Daunen oder cooles Kunstleder?", keywords: ["wolle", "woll", "kaschmir", "cashmere", "alpaka", "tweed", "filz", "trench", "baumwolle", "gabardine", "stepp", "daune", "puffer", "wattiert", "teddy", "fleece", "kunstleder", "leder", "vegan", "wasserdicht", "regen", "wind", "warm", "kalt", "winter", "leicht", "übergang", "frühling", "herbst"], echo: function (hit) { return "Mmh, „" + hit + "“ — da bekomme ich direkt Lust auf einen Herbstspaziergang."; } },
+    { id: "budget", question: "Fast geschafft! Verraten Sie mir noch, wie viel Sie ungefähr ausgeben möchten? Keine Sorge, ich verrate es niemandem 😉", keywords: ["€", "eur", "euro", "budget", "unter", "bis", "maximal", "max", "höchstens", "ungefähr", "circa", "ca.", "preis", "günstig", "billig", "teuer", "egal", "spielt keine rolle", "50", "100", "150", "200", "250", "300"], echo: function (hit) { return "Budget „" + hit + "“ — notiert, ich achte darauf wie auf mein eigenes Portemonnaie."; } }
   ];
+
+  var BOT_ACKS = [
+    "Danke, das hilft mir sehr weiter!",
+    "Super, ich merke mir das!",
+    "Ah, verstehe — ich habe schon ein paar Ideen im Kopf.",
+    "Wunderbar, Sie haben einen tollen Geschmack!",
+    "Notiert! Ich freue mich, dass wir das zusammen aussuchen."
+  ];
+
+  var BOT_RECOMMENDED_IDS = [3, 6, 8, 75];
 
   function findHit(text, words) {
     var t = text.toLowerCase();
@@ -381,7 +484,10 @@
     var pending = null;
     var greetTimer = null;
     var replyTimer = null;
-    var recommendations = [PRODUCTS[2], PRODUCTS[5], PRODUCTS[7], PRODUCTS[0]].filter(Boolean);
+    var recommendations = [];
+    BOT_RECOMMENDED_IDS.forEach(function (id) {
+      PRODUCTS.filter(function (p) { return p.id === id; }).forEach(function (p) { recommendations.push(p); });
+    });
 
     var el = document.createElement("section");
     el.className = "advisor";
@@ -401,6 +507,7 @@
           (m.products ? '<div class="bot-products">' + recommendations.map(function (p) { return productCard(p, { compact: true, recommended: true }); }).join("") + "</div>" : "") +
           "</div>";
       }).join("") + (typing ? '<div class="typing">StyleBot schreibt …</div>' : "");
+      log.scrollTop = log.scrollHeight;
       input.disabled = typing;
       sendBtn.disabled = typing || !input.value.trim();
       form.hidden = done;
@@ -412,7 +519,7 @@
       clearTimeout(greetTimer);
       pending = null;
       greetTimer = setTimeout(function () {
-        messages = [{ from: "bot", text: "Hallo! Ich bin StyleBot — wie kann ich Ihnen helfen? Wonach suchen Sie heute?" }];
+        messages = [{ from: "bot", text: "Hallo und herzlich willkommen! 👋 Ich bin StyleBot, Ihr persönlicher Modeberater — Mode ist meine große Leidenschaft. Wie kann ich Ihnen heute helfen? Wonach suchen Sie?" }];
         typing = false;
         draw();
         if (!done) input.focus({ preventScroll: true });
@@ -422,6 +529,9 @@
     function send() {
       var text = input.value.trim();
       if (!text || typing || done) return;
+      var userCountBefore = messages.filter(function (m) { return m.from === "user"; }).length;
+      var wholeConversation = messages.filter(function (m) { return m.from === "user"; })
+        .map(function (m) { return m.text; }).concat([text]).join(" ");
       messages.push({ from: "user", text: text });
       input.value = "";
       typing = true;
@@ -430,19 +540,22 @@
       var echoes = [];
       TOPICS.forEach(function (topic) {
         if (covered[topic.id]) return;
-        var hit = findHit(text, topic.keywords);
-        if (hit) { covered[topic.id] = true; echoes.push(topic.echo(hit)); }
+        var hit = findHit(wholeConversation, topic.keywords);
+        if (hit) {
+          covered[topic.id] = true;
+          if (findHit(text, topic.keywords)) echoes.push(topic.echo(hit));
+        }
       });
       var next = TOPICS.filter(function (t) { return !covered[t.id]; })[0] || null;
       pending = next;
       draw();
       replyTimer = setTimeout(function () {
-        messages.push({ from: "bot", text: "Danke, das hilft mir weiter!" });
+        messages.push({ from: "bot", text: BOT_ACKS[userCountBefore % BOT_ACKS.length] || "Danke!" });
         if (echoes.length) messages.push({ from: "bot", text: echoes.join(" ") });
         if (next) {
           messages.push({ from: "bot", text: next.question });
         } else {
-          messages.push({ from: "bot", text: "Perfekt — diese schwarzen Mäntel passen am besten zu Ihren Angaben:", products: true });
+          messages.push({ from: "bot", text: "Ich habe ein bisschen in unserem Lager gestöbert und bin ehrlich begeistert — diese Mäntel passen perfekt zu Ihnen:", products: true });
           done = true;
         }
         typing = false;
